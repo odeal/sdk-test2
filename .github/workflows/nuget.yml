@@ -42,7 +42,7 @@ jobs:
 
     - name: Generate SBOM
       run: |
-        syft artifacts/*.nupkg -o spdx-json > sbom.json
+        syft artifacts/*.nupkg -o spdx-json:sbom.json
 
     - name: Sign package
       run: |
