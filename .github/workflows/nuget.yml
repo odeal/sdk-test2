@@ -68,6 +68,8 @@ jobs:
         path: |
           artifacts/*.nupkg
           sbom.json
+          artifacts/*.sig
+          artifacts/*.pem
 
     - name: Add GitHub NuGet source
       run: |
