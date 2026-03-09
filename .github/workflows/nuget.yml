@@ -46,7 +46,10 @@ jobs:
 
     - name: Sign package
       run: |
-        cosign sign-blob --yes artifacts/*.nupkg
+        cosign sign-blob \
+          --yes \
+          --bundle artifacts/bundle.json \
+          artifacts/*.nupkg
 
     - name: Attest SBOM
       run: |
@@ -68,8 +71,7 @@ jobs:
         path: |
           artifacts/*.nupkg
           sbom.json
-          artifacts/*.sig
-          artifacts/*.pem
+          artifacts/bundle.json
 
     - name: Add GitHub NuGet source
       run: |
