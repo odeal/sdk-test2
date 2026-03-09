@@ -1,0 +1,69 @@
+name: nuget-build
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ "v*" ]
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build -c Release --no-restore
+
+    - name: Pack NuGet
+      run: dotnet pack -c Release --no-build -o artifacts
+
+    - name: Install cosign
+      uses: sigstore/cosign-installer@v3
+
+    - name: Install syft
+      uses: anchore/sbom-action/download-syft@v0
+
+    - name: Generate SBOM
+      run: |
+        syft artifacts/*.nupkg -o spdx-json > sbom.json
+
+    - name: Sign package
+      run: |
+        cosign sign-blob --yes artifacts/*.nupkg
+
+    - name: Attest SBOM
+      run: |
+        cosign attest-blob \
+          --yes \
+          --predicate sbom.json \
+          --type spdx \
+          artifacts/*.nupkg
+
+    - name: Generate provenance
+      uses: actions/attest-build-provenance@v1
+      with:
+        subject-path: artifacts/*.nupkg
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: nuget
+        path: |
+          artifacts/*.nupkg
+          sbom.json
