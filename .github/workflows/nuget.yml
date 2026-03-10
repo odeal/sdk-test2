@@ -49,7 +49,7 @@ jobs:
 # ---------------- INSTALL TOOLS ----------------
 
     - name: Install cosign
-      uses: sigstore/cosign-installer@v4
+      uses: sigstore/cosign-installer@v3
 
     # - name: Install syft
     #   uses: anchore/sbom-action/download-syft@v0
