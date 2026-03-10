@@ -156,6 +156,17 @@ jobs:
       with:
         subject-path: artifacts/package.nupkg
 
+    - name: Save provenance info
+      run: |
+        cat <<EOF > artifacts/provenance.txt
+        SUBJECT: artifacts/package.nupkg
+        DIGEST:  ${{ steps.provenance.outputs.subject-digest }}
+        ATTESTATION: ${{ steps.provenance.outputs.attestation-url }}
+        REKOR: ${{ steps.provenance.outputs.rekor-log-index }}
+        EOF
+
+        cat artifacts/provenance.txt
+
 # ARTIFACT UPLOAD
 
     - name: Upload artifacts
@@ -166,6 +177,7 @@ jobs:
         path: |
           artifacts/package.nupkg
           artifacts/*.json
+          artifacts/provenance.txt
 
 # PUBLISH
 

@@ -1,0 +1,69 @@
+version: '3'
+
+set:
+  - errexit
+  - nounset
+  - pipefail
+
+silent: true
+
+platforms:
+  - linux
+  - darwin
+
+env:
+  TMP_DIR:              /tmp/artifacts
+  PKG:                  package.nupkg
+  CERT_IDENTITY_REGEX:  ^https://github.com/odeal/sdk-test2/.github/workflows/nuget\.yml@refs/(heads/main|tags/v?[0-9]+\.[0-9]+\.[0-9]+)$
+  CERT_ISSUER:          https://token.actions.githubusercontent.com
+
+tasks:
+  default:
+    cmds:
+      - task: verify-blob
+      - task: verify-sbom
+      - task: verify-vuln
+  
+  curl:
+    cmds:
+      - |
+        curl -sL -o "$TMP_DIR/artifact.zip" {{.CLI_ARGS}}
+        ls -l "$TMP_DIR/artifact.zip"
+        
+        unzip -o "$TMP_DIR/artifact.zip" -d "$TMP_DIR"
+        ls -l "$TMP_DIR"
+
+  verify-blob:
+    cmds:
+      - echo
+      - echo "Verify signature"
+      - |
+        cosign verify-blob \
+          --bundle "$TMP_DIR/sign.bundle.json" \
+          --certificate-identity-regexp "$CERT_IDENTITY_REGEX" \
+          --certificate-oidc-issuer "$CERT_ISSUER" \
+          "$TMP_DIR/$PKG"
+
+  verify-sbom:
+    cmds:
+      - echo
+      - echo "Verify SBOM attestation"
+      - |
+        cosign verify-blob-attestation \
+          --bundle "$TMP_DIR/sbom.bundle.json" \
+          --type cyclonedx \
+          --certificate-identity-regexp "$CERT_IDENTITY_REGEX" \
+          --certificate-oidc-issuer "$CERT_ISSUER" \
+          "$TMP_DIR/$PKG"
+
+  verify-vuln:
+    cmds:
+      - echo
+      - echo "Verify vulnerabilities"
+      - |
+        cosign verify-blob-attestation \
+          --bundle "$TMP_DIR/vuln.bundle.json" \
+          --type vuln \
+          --certificate-identity-regexp "$CERT_IDENTITY_REGEX" \
+          --certificate-oidc-issuer "$CERT_ISSUER" \
+          "$TMP_DIR/$PKG"  
