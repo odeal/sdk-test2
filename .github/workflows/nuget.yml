@@ -152,17 +152,21 @@ jobs:
 # PROVENANCE
 
     - name: Generate provenance
-      uses: actions/attest-build-provenance@v1
+      uses: actions/attest-build-provenance@v4
       with:
         subject-path: artifacts/package.nupkg
 
     - name: Save provenance info
       run: |
+        PKG=artifacts/package.nupkg
+        DIGEST=$(sha256sum "$PKG" | awk '{print $1}')
+
         cat <<EOF > artifacts/provenance.txt
-        SUBJECT: artifacts/package.nupkg
-        DIGEST:  ${{ steps.provenance.outputs.subject-digest }}
-        ATTESTATION: ${{ steps.provenance.outputs.attestation-url }}
-        REKOR: ${{ steps.provenance.outputs.rekor-log-index }}
+        SUBJECT: $PKG
+        DIGEST: sha256:$DIGEST
+        ATTESTATION_URL: ${{ steps.provenance.outputs.attestation-url }}
+        ATTESTATION_ID: ${{ steps.provenance.outputs.attestation-id }}
+        BUNDLE_PATH: ${{ steps.provenance.outputs.bundle-path }}
         EOF
 
         cat artifacts/provenance.txt
