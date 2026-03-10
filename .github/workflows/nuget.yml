@@ -17,13 +17,19 @@ jobs:
 
     steps:
 
+# ---------------- CHECKOUT ----------------
+
     - name: Checkout
       uses: actions/checkout@v4
+
+# ---------------- .NET SETUP ----------------
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
+
+# ---------------- BUILD ----------------
 
     - name: Restore
       run: dotnet restore
@@ -33,6 +39,15 @@ jobs:
 
     - name: Pack NuGet
       run: dotnet pack -c Release --no-build -o artifacts
+
+# ---------------- DETECT PACKAGE ----------------
+
+    - name: Detect package
+      run: |
+        echo "PKG=$(ls artifacts/*.nupkg)" >> $GITHUB_ENV
+        ls -lah artifacts
+
+# ---------------- INSTALL TOOLS ----------------
 
     - name: Install cosign
       uses: sigstore/cosign-installer@v3
@@ -61,10 +76,10 @@ jobs:
 
     - name: Sign package
       run: |
-        for pkg in artifacts/*.nupkg; do
+        for pkg in $PKG; do
           cosign sign-blob \
             --yes \
-            --bundle artifacts/sign.bundle.json \
+            --bundle artifacts/$(basename $pkg).sign.bundle.json \
             "$pkg"
         done
 
@@ -72,9 +87,9 @@ jobs:
 
     - name: Verify package signature
       run: |
-        for pkg in artifacts/*.nupkg; do
+        for pkg in $PKG; do
           cosign verify-blob \
-            --bundle artifacts/sign.bundle.json \
+            --bundle artifacts/$(basename $pkg).sign.bundle.json \
             --certificate-identity "https://github.com/${{ github.repository }}/.github/workflows/nuget.yml@refs/heads/main" \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             "$pkg"
@@ -84,29 +99,22 @@ jobs:
 
     - name: Attest SBOM
       run: |
-        # for pkg in artifacts/*.nupkg; do
-        #   cosign attest-blob \
-        #     --yes \
-        #     --bundle artifacts/sbom.bundle.json \
-        #     --predicate artifacts/sbom.json \
-        #     --type spdx \
-        #     "$pkg"
-        # done
-        COSIGN_EXPERIMENTAL=1 cosign attest-blob \
-          --yes \
-          --bundle artifacts/sbom.bundle.json \
-          --predicate artifacts/sbom.json \
-          --type spdx \
-          "$pkg" </dev/null
-
+        for pkg in $PKG; do
+          COSIGN_EXPERIMENTAL=1 cosign attest-blob \
+            --yes \
+            --bundle artifacts/$(basename $pkg).sbom.bundle.json \
+            --predicate artifacts/sbom.json \
+            --type spdx \
+            "$pkg"
+        done
 
 # ---------------- VERIFY SBOM ----------------
 
     - name: Verify SBOM attestation
       run: |
-        for pkg in artifacts/*.nupkg; do
+        for pkg in $PKG; do
           cosign verify-blob-attestation \
-            --bundle artifacts/sbom.bundle.json \
+            --bundle artifacts/$(basename $pkg).sbom.bundle.json \
             --type spdx \
             --certificate-identity "https://github.com/${{ github.repository }}/.github/workflows/nuget.yml@refs/heads/main" \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
@@ -117,19 +125,19 @@ jobs:
 
     - name: Verify SBOM reproducibility
       run: |
-        for pkg in artifacts/*.nupkg; do
+        for pkg in $PKG; do
           syft "$pkg" -o spdx-json > sbom.generated.json
           diff artifacts/sbom.json sbom.generated.json || true
         done
 
-# ---------------- VULN ATTESTATION (SBOM → VULN LINK) ----------------
+# ---------------- VULN ATTESTATION ----------------
 
     - name: Attest vulnerabilities
       run: |
-        for pkg in artifacts/*.nupkg; do
+        for pkg in $PKG; do
           cosign attest-blob \
             --yes \
-            --bundle artifacts/vuln.bundle.json \
+            --bundle artifacts/$(basename $pkg).vuln.bundle.json \
             --predicate artifacts/vuln.json \
             --type vuln \
             "$pkg"
@@ -139,9 +147,9 @@ jobs:
 
     - name: Verify vulnerability attestation
       run: |
-        for pkg in artifacts/*.nupkg; do
+        for pkg in $PKG; do
           cosign verify-blob-attestation \
-            --bundle artifacts/vuln.bundle.json \
+            --bundle artifacts/$(basename $pkg).vuln.bundle.json \
             --type vuln \
             --certificate-identity "https://github.com/${{ github.repository }}/.github/workflows/nuget.yml@refs/heads/main" \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
@@ -155,7 +163,7 @@ jobs:
       with:
         subject-path: artifacts/*.nupkg
 
-# ---------------- ARTIFACTS ----------------
+# ---------------- ARTIFACT UPLOAD ----------------
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
