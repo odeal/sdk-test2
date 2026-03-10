@@ -129,9 +129,12 @@ jobs:
 
     - name: Install grype
       uses: anchore/scan-action/download-grype@v3
+      with:
+        version: latest
 
     - name: Scan vulnerabilities
       run: |
+        grype --version
         grype sbom:artifacts/sbom.json -o json > artifacts/vuln.json
 
 # ---------------- VULN ATTESTATION ----------------
