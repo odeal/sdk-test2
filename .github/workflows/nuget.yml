@@ -40,10 +40,17 @@ jobs:
     - name: Install syft
       uses: anchore/sbom-action/download-syft@v0
 
+    - name: Install grype
+      uses: anchore/scan-action/download-grype@v3
+      
     - name: Generate SBOM
       run: |
         syft artifacts/*.nupkg -o spdx-json > artifacts/sbom.json
 
+    - name: Scan vulnerabilities
+      run: |
+        grype sbom:artifacts/sbom.json -o json > artifacts/vuln.json
+        
     - name: Sign package
       run: |
         for pkg in artifacts/*.nupkg; do
@@ -92,6 +99,28 @@ jobs:
           diff artifacts/sbom.json sbom.generated.json || true
         done
 
+    - name: Attest vulnerabilities
+      run: |
+        for pkg in artifacts/*.nupkg; do
+          cosign attest-blob \
+            --yes \
+            --bundle artifacts/vuln.bundle.json \
+            --predicate artifacts/vuln.json \
+            --type vuln \
+            "$pkg"
+        done
+
+    - name: Verify vulnerability attestation
+      run: |
+        for pkg in artifacts/*.nupkg; do
+          cosign verify-blob-attestation \
+            --bundle artifacts/vuln.bundle.json \
+            --type vuln \
+            --certificate-identity "https://github.com/${{ github.repository }}/.github/workflows/nuget.yml@refs/heads/main" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "$pkg"
+        done
+        
     - name: Generate provenance
       uses: actions/attest-build-provenance@v1
       with:
