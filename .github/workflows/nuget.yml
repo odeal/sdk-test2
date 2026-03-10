@@ -94,11 +94,11 @@ jobs:
 
         ~/.dotnet/tools/dotnet-CycloneDX \
             -o artifacts \
-            -fn sbom \
+            -fn sbom.json \
             -F json \
             -rs \
             -t \
-            .
+            *.sln
 
 # ---------------- SBOM ATTESTATION ----------------
 
