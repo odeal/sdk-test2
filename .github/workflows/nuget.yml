@@ -23,12 +23,12 @@ jobs:
 # ---------------- CHECKOUT ----------------
 
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
 # ---------------- .NET SETUP ----------------
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: '8.0.x'
 
@@ -49,13 +49,13 @@ jobs:
 # ---------------- INSTALL TOOLS ----------------
 
     - name: Install cosign
-      uses: sigstore/cosign-installer@v3
+      uses: sigstore/cosign-installer@v4
 
     # - name: Install syft
     #   uses: anchore/sbom-action/download-syft@v0
 
     - name: Install grype
-      uses: anchore/scan-action/download-grype@v3
+      uses: anchore/scan-action/download-grype@v7
 
 # ---------------- SIGN ARTIFACT ----------------
 
