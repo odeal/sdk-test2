@@ -93,10 +93,12 @@ jobs:
         mkdir -p artifacts
 
         ~/.dotnet/tools/dotnet-CycloneDX \
-            . \
             -o artifacts \
             -fn sbom \
-            -j -t
+            -F json \
+            -rs \
+            -t \
+            .
 
 # ---------------- SBOM ATTESTATION ----------------
 
