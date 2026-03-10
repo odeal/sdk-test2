@@ -128,7 +128,7 @@ jobs:
 # ---------------- VULN SCAN ----------------
 
     - name: Install grype
-      uses: anchore/scan-action/download-grype@v3
+      uses: anchore/scan-action/download-grype@v7
       with:
         version: latest
 
