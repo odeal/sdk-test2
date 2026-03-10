@@ -80,7 +80,7 @@ jobs:
 
     - name: Generate SBOM
       run: |
-        syft "$PKG" -o spdx-json > artifacts/sbom.json
+        syft scan dir:. -o spdx-json > artifacts/sbom.json
 
 # ---------------- SBOM ATTESTATION ----------------
 
