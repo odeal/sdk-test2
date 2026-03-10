@@ -133,6 +133,7 @@ jobs:
         path: |
           artifacts/*.nupkg
           artifacts/sbom.json
+          artifacts/vuln.json
           artifacts/*.bundle.json
 
     - name: Add GitHub NuGet source
