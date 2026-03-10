@@ -55,8 +55,12 @@ jobs:
     #   uses: anchore/sbom-action/download-syft@v0
 
     - name: Install grype
-      uses: anchore/scan-action/download-grype@v6
+      uses: anchore/scan-action/download-grype@v7
 
+    - name: Install CycloneDX
+      run: |
+        dotnet tool install -g CycloneDX
+        
 # ---------------- SIGN ARTIFACT ----------------
 
     - name: Sign package
@@ -84,9 +88,7 @@ jobs:
 
 # ---------------- SBOM ----------------
 
-    - name: Install CycloneDX
-      run: |
-        dotnet tool install -g CycloneDX
+
 
     - name: Generate SBOM
       run: |
