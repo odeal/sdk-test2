@@ -127,10 +127,16 @@ jobs:
 
 # ---------------- VULN SCAN ----------------
 
+    # - name: Install grype
+    #   uses: anchore/scan-action/download-grype@v6
+    #   with:
+    #     version: latest
+
+
     - name: Install grype
-      uses: anchore/scan-action/download-grype@v6
-      with:
-        version: latest
+      run: |
+        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh \
+          | sh -s -- -b /usr/local/bin v0.109.1
 
     - name: Scan vulnerabilities
       run: |
