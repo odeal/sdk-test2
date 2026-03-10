@@ -42,15 +42,23 @@ jobs:
 
     - name: Install grype
       uses: anchore/scan-action/download-grype@v3
-      
+
+# ---------------- SBOM ----------------
+
     - name: Generate SBOM
       run: |
         syft artifacts/*.nupkg -o spdx-json > artifacts/sbom.json
+        sha256sum artifacts/sbom.json | cut -d ' ' -f1 > artifacts/sbom.sha
+
+# ---------------- VULN SCAN ----------------
 
     - name: Scan vulnerabilities
       run: |
         grype sbom:artifacts/sbom.json -o json > artifacts/vuln.json
-        
+        sha256sum artifacts/vuln.json | cut -d ' ' -f1 > artifacts/vuln.sha
+
+# ---------------- SIGN ARTIFACT ----------------
+
     - name: Sign package
       run: |
         for pkg in artifacts/*.nupkg; do
@@ -59,6 +67,8 @@ jobs:
             --bundle artifacts/sign.bundle.json \
             "$pkg"
         done
+
+# ---------------- VERIFY SIGNATURE ----------------
 
     - name: Verify package signature
       run: |
@@ -69,6 +79,8 @@ jobs:
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             "$pkg"
         done
+
+# ---------------- SBOM ATTESTATION ----------------
 
     - name: Attest SBOM
       run: |
@@ -81,6 +93,8 @@ jobs:
             "$pkg"
         done
 
+# ---------------- VERIFY SBOM ----------------
+
     - name: Verify SBOM attestation
       run: |
         for pkg in artifacts/*.nupkg; do
@@ -92,12 +106,16 @@ jobs:
             "$pkg"
         done
 
+# ---------------- SBOM REPRODUCIBILITY ----------------
+
     - name: Verify SBOM reproducibility
       run: |
         for pkg in artifacts/*.nupkg; do
           syft "$pkg" -o spdx-json > sbom.generated.json
           diff artifacts/sbom.json sbom.generated.json || true
         done
+
+# ---------------- VULN ATTESTATION (SBOM → VULN LINK) ----------------
 
     - name: Attest vulnerabilities
       run: |
@@ -110,6 +128,8 @@ jobs:
             "$pkg"
         done
 
+# ---------------- VERIFY VULN ----------------
+
     - name: Verify vulnerability attestation
       run: |
         for pkg in artifacts/*.nupkg; do
@@ -120,11 +140,15 @@ jobs:
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             "$pkg"
         done
-        
+
+# ---------------- PROVENANCE ----------------
+
     - name: Generate provenance
       uses: actions/attest-build-provenance@v1
       with:
         subject-path: artifacts/*.nupkg
+
+# ---------------- ARTIFACTS ----------------
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -135,6 +159,8 @@ jobs:
           artifacts/sbom.json
           artifacts/vuln.json
           artifacts/*.bundle.json
+
+# ---------------- PUBLISH ----------------
 
     - name: Add GitHub NuGet source
       run: |
