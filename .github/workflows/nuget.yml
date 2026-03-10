@@ -128,8 +128,8 @@ jobs:
 # ---------------- VULN SCAN ----------------
 
     - name: Install grype
-      uses: anchore/scan-action/download-grype@v7
-      
+      uses: anchore/scan-action/download-grype@v3
+
     - name: Scan vulnerabilities
       run: |
         grype sbom:artifacts/sbom.json -o json > artifacts/vuln.json
