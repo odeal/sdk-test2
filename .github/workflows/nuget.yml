@@ -84,14 +84,21 @@ jobs:
 
     - name: Attest SBOM
       run: |
-        for pkg in artifacts/*.nupkg; do
-          cosign attest-blob \
-            --yes \
-            --bundle artifacts/sbom.bundle.json \
-            --predicate artifacts/sbom.json \
-            --type spdx \
-            "$pkg"
-        done
+        # for pkg in artifacts/*.nupkg; do
+        #   cosign attest-blob \
+        #     --yes \
+        #     --bundle artifacts/sbom.bundle.json \
+        #     --predicate artifacts/sbom.json \
+        #     --type spdx \
+        #     "$pkg"
+        # done
+        COSIGN_EXPERIMENTAL=1 cosign attest-blob \
+          --yes \
+          --bundle artifacts/sbom.bundle.json \
+          --predicate artifacts/sbom.json \
+          --type spdx \
+          "$pkg" </dev/null
+
 
 # ---------------- VERIFY SBOM ----------------
 
