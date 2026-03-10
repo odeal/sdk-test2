@@ -78,9 +78,25 @@ jobs:
 
 # ---------------- SBOM ----------------
 
+    # - name: Generate SBOM
+    #   run: |
+    #     syft scan dir:. -o spdx-json > artifacts/sbom.json
+
+# ---------------- SBOM ----------------
+
+    - name: Install CycloneDX
+      run: |
+        dotnet tool install -g CycloneDX
+
     - name: Generate SBOM
       run: |
-        syft scan dir:. -o spdx-json > artifacts/sbom.json
+        mkdir -p artifacts
+
+        ~/.dotnet/tools/dotnet-CycloneDX \
+            . \
+            -o artifacts \
+            -fn sbom \
+            -j -t
 
 # ---------------- SBOM ATTESTATION ----------------
 
