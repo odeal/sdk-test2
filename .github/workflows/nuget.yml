@@ -15,6 +15,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      PKG: artifacts/package.nupkg
+
     steps:
 
 # ---------------- CHECKOUT ----------------
@@ -38,13 +41,9 @@ jobs:
       run: dotnet build -c Release --no-restore
 
     - name: Pack NuGet
-      run: dotnet pack -c Release --no-build -o artifacts
-
-# ---------------- DETECT PACKAGE ----------------
-
-    - name: Detect package
       run: |
-        echo "PKG=$(ls artifacts/*.nupkg)" >> $GITHUB_ENV
+        dotnet pack -c Release --no-build -o artifacts
+        mv artifacts/*.nupkg $PKG
         ls -lah artifacts
 
 # ---------------- INSTALL TOOLS ----------------
@@ -58,42 +57,30 @@ jobs:
     - name: Install grype
       uses: anchore/scan-action/download-grype@v3
 
-# ---------------- SBOM ----------------
-
-    - name: Generate SBOM
-      run: |
-        syft dir:. -o spdx-json > artifacts/sbom.json
-        sha256sum artifacts/sbom.json | cut -d ' ' -f1 > artifacts/sbom.sha
-
-# ---------------- VULN SCAN ----------------
-
-    - name: Scan vulnerabilities
-      run: |
-        grype sbom:artifacts/sbom.json -o json > artifacts/vuln.json
-        sha256sum artifacts/vuln.json | cut -d ' ' -f1 > artifacts/vuln.sha
-
 # ---------------- SIGN ARTIFACT ----------------
 
     - name: Sign package
       run: |
-        for pkg in $PKG; do
-          cosign sign-blob \
-            --yes \
-            --bundle artifacts/$(basename $pkg).sign.bundle.json \
-            "$pkg"
-        done
+        cosign sign-blob \
+          --yes \
+          --bundle artifacts/sign.bundle.json \
+          "$PKG"
 
 # ---------------- VERIFY SIGNATURE ----------------
 
     - name: Verify package signature
       run: |
-        for pkg in $PKG; do
-          cosign verify-blob \
-            --bundle artifacts/$(basename $pkg).sign.bundle.json \
-            --certificate-identity "https://github.com/${{ github.repository }}/.github/workflows/nuget.yml@refs/heads/main" \
-            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-            "$pkg"
-        done
+        cosign verify-blob \
+          --bundle artifacts/sign.bundle.json \
+          --certificate-identity "https://github.com/${{ github.repository }}/.github/workflows/nuget.yml@refs/heads/main" \
+          --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+          "$PKG"
+
+# ---------------- SBOM ----------------
+
+    - name: Generate SBOM
+      run: |
+        syft "$PKG" -o spdx-json > artifacts/sbom.json
 
 # ---------------- SBOM ATTESTATION ----------------
 
@@ -101,72 +88,57 @@ jobs:
       env:
         COSIGN_YES: "true"
       run: |
-        set -e
-
-        for pkg in artifacts/*.nupkg; do
-          bundle="artifacts/$(basename "$pkg").sbom.bundle.json"
-
-          cosign attest-blob \
-            --bundle "$bundle" \
-            --predicate artifacts/sbom.json \
-            --type spdx \
-            "$pkg"
-        done
+        cosign attest-blob \
+          --bundle artifacts/sbom.bundle.json \
+          --predicate artifacts/sbom.json \
+          --type spdx \
+          "$PKG"
 
 # ---------------- VERIFY SBOM ----------------
 
     - name: Verify SBOM attestation
       run: |
-        for pkg in $PKG; do
-          cosign verify-blob-attestation \
-            --bundle artifacts/$(basename $pkg).sbom.bundle.json \
-            --type spdx \
-            --certificate-identity "https://github.com/${{ github.repository }}/.github/workflows/nuget.yml@refs/heads/main" \
-            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-            "$pkg"
-        done
+        cosign verify-blob-attestation \
+          --bundle artifacts/sbom.bundle.json \
+          --type spdx \
+          --certificate-identity "https://github.com/${{ github.repository }}/.github/workflows/nuget.yml@refs/heads/main" \
+          --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+          "$PKG"
 
-# ---------------- SBOM REPRODUCIBILITY ----------------
+# ---------------- VULN SCAN ----------------
 
-    - name: Verify SBOM reproducibility
+    - name: Scan vulnerabilities
       run: |
-        for pkg in $PKG; do
-          syft "$pkg" -o spdx-json > sbom.generated.json
-          diff artifacts/sbom.json sbom.generated.json || true
-        done
+        grype sbom:artifacts/sbom.json -o json > artifacts/vuln.json
 
 # ---------------- VULN ATTESTATION ----------------
 
     - name: Attest vulnerabilities
       run: |
-        for pkg in $PKG; do
-          cosign attest-blob \
-            --yes \
-            --bundle artifacts/$(basename $pkg).vuln.bundle.json \
-            --predicate artifacts/vuln.json \
-            --type vuln \
-            "$pkg"
-        done
+        cosign attest-blob \
+          --yes \
+          --bundle artifacts/vuln.bundle.json \
+          --predicate artifacts/vuln.json \
+          --type vuln \
+          "$PKG"
 
 # ---------------- VERIFY VULN ----------------
 
     - name: Verify vulnerability attestation
       run: |
-        for pkg in $PKG; do
-          cosign verify-blob-attestation \
-            --bundle artifacts/$(basename $pkg).vuln.bundle.json \
-            --type vuln \
-            --certificate-identity "https://github.com/${{ github.repository }}/.github/workflows/nuget.yml@refs/heads/main" \
-            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-            "$pkg"
-        done
+        cosign verify-blob-attestation \
+          --bundle artifacts/vuln.bundle.json \
+          --type vuln \
+          --certificate-identity "https://github.com/${{ github.repository }}/.github/workflows/nuget.yml@refs/heads/main" \
+          --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+          "$PKG"
 
 # ---------------- PROVENANCE ----------------
 
     - name: Generate provenance
       uses: actions/attest-build-provenance@v1
       with:
-        subject-path: artifacts/*.nupkg
+        subject-path: artifacts/package.nupkg
 
 # ---------------- ARTIFACT UPLOAD ----------------
 
@@ -175,10 +147,8 @@ jobs:
       with:
         name: nuget
         path: |
-          artifacts/*.nupkg
-          artifacts/sbom.json
-          artifacts/vuln.json
-          artifacts/*.bundle.json
+          artifacts/package.nupkg
+          artifacts/*.json
 
 # ---------------- PUBLISH ----------------
 
@@ -193,6 +163,6 @@ jobs:
 
     - name: Publish NuGet package
       run: |
-        dotnet nuget push artifacts/*.nupkg \
+        dotnet nuget push $PKG \
           --source github \
           --skip-duplicate
