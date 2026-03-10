@@ -47,7 +47,7 @@ jobs:
 
     - name: Generate SBOM
       run: |
-        syft artifacts/*.nupkg -o spdx-json > artifacts/sbom.json
+        syft dir:. -o spdx-json > artifacts/sbom.json
         sha256sum artifacts/sbom.json | cut -d ' ' -f1 > artifacts/sbom.sha
 
 # ---------------- VULN SCAN ----------------
