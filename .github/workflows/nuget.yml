@@ -89,6 +89,7 @@ jobs:
         COSIGN_YES: "true"
       run: |
         cosign attest-blob \
+          --yes \
           --bundle artifacts/sbom.bundle.json \
           --predicate artifacts/sbom.json \
           --type spdx \
