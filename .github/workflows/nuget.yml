@@ -3,13 +3,13 @@ name: nuget-build
 on:
   push:
     branches: [ main ]
-    tags: [ "v*" ]
+    tags:     [ "v*" ]
 
 permissions:
-  contents: read
-  id-token: write
+  contents:     read
+  id-token:     write
   attestations: write
-  packages: write
+  packages:     write
 
 jobs:
   build:
@@ -20,19 +20,31 @@ jobs:
 
     steps:
 
-# ---------------- CHECKOUT ----------------
+# CHECKOUT
 
     - name: Checkout
       uses: actions/checkout@v6
 
-# ---------------- .NET SETUP ----------------
+# INSTALL TOOLS
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
       with:
         dotnet-version: '8.0.x'
 
-# ---------------- BUILD ----------------
+    - name: Install cosign
+      uses: sigstore/cosign-installer@v3
+
+    - name: Install CycloneDX
+      run: |
+        dotnet tool install -g CycloneDX
+
+    - name: Install grype
+      run: |
+        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | \
+          sh -s -- -b /usr/local/bin
+
+# BUILD
 
     - name: Restore
       run: dotnet restore
@@ -43,20 +55,12 @@ jobs:
     - name: Pack NuGet
       run: |
         dotnet pack -c Release --no-build -o artifacts
+        
         mv artifacts/*.nupkg $PKG
+        
         ls -lah artifacts
 
-# ---------------- INSTALL TOOLS ----------------
-
-    - name: Install cosign
-      uses: sigstore/cosign-installer@v3
-
-    # - name: Install syft
-    #   uses: anchore/sbom-action/download-syft@v0
-
-
-
-# ---------------- SIGN ARTIFACT ----------------
+# SIGN ARTIFACT
 
     - name: Sign package
       run: |
@@ -65,7 +69,7 @@ jobs:
           --bundle artifacts/sign.bundle.json \
           "$PKG"
 
-# ---------------- VERIFY SIGNATURE ----------------
+# VERIFY SIGNATURE
 
     - name: Verify package signature
       run: |
@@ -75,22 +79,10 @@ jobs:
           --certificate-oidc-issuer https://token.actions.githubusercontent.com \
           "$PKG"
 
-# ---------------- SBOM ----------------
-
-    # - name: Generate SBOM
-    #   run: |
-    #     syft scan dir:. -o spdx-json > artifacts/sbom.json
-
-# ---------------- SBOM ----------------
-
-    - name: Install CycloneDX
-      run: |
-        dotnet tool install -g CycloneDX
+# SBOM
 
     - name: Generate SBOM
       run: |
-        mkdir -p artifacts
-
         ~/.dotnet/tools/dotnet-CycloneDX \
             -o artifacts \
             -fn sbom.json \
@@ -99,9 +91,7 @@ jobs:
             -t \
             *.sln
         
-        # cat artifacts/sbom.json
-
-# ---------------- SBOM ATTESTATION ----------------
+# SBOM ATTESTATION
 
     - name: Attest SBOM
       env:
@@ -114,7 +104,7 @@ jobs:
           --type spdx \
           "$PKG"
 
-# ---------------- VERIFY SBOM ----------------
+# VERIFY SBOM
 
     - name: Verify SBOM attestation
       run: |
@@ -125,25 +115,17 @@ jobs:
           --certificate-oidc-issuer https://token.actions.githubusercontent.com \
           "$PKG"
 
-# ---------------- VULN SCAN ----------------
-
-    # - name: Install grype
-    #   uses: anchore/scan-action/download-grype@v6
-    #   with:
-    #     version: latest
-
-
-    - name: Install grype
-      run: |
-        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh \
-          | sh -s -- -b /usr/local/bin # v0.109.1
+# VULN SCAN
 
     - name: Scan vulnerabilities
       run: |
         grype --version
+        
+        grype sbom:artifacts/sbom.json -f high
+        
         grype sbom:artifacts/sbom.json -o json > artifacts/vuln.json
 
-# ---------------- VULN ATTESTATION ----------------
+# VULN ATTESTATION
 
     - name: Attest vulnerabilities
       run: |
@@ -154,7 +136,7 @@ jobs:
           --type vuln \
           "$PKG"
 
-# ---------------- VERIFY VULN ----------------
+# VERIFY VULN
 
     - name: Verify vulnerability attestation
       run: |
@@ -165,25 +147,25 @@ jobs:
           --certificate-oidc-issuer https://token.actions.githubusercontent.com \
           "$PKG"
 
-# ---------------- PROVENANCE ----------------
+# PROVENANCE
 
     - name: Generate provenance
       uses: actions/attest-build-provenance@v1
       with:
         subject-path: artifacts/package.nupkg
 
-# ---------------- ARTIFACT UPLOAD ----------------
+# ARTIFACT UPLOAD
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
-      if: always()
+      # if: always()
       with:
         name: nuget
         path: |
           artifacts/package.nupkg
           artifacts/*.json
 
-# ---------------- PUBLISH ----------------
+# PUBLISH
 
     - name: Add GitHub NuGet source
       run: |
