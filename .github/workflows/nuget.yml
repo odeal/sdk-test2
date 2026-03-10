@@ -55,7 +55,7 @@ jobs:
     #   uses: anchore/sbom-action/download-syft@v0
 
     - name: Install grype
-      uses: anchore/scan-action/download-grype@v7
+      uses: anchore/scan-action/download-grype@v6
 
 # ---------------- SIGN ARTIFACT ----------------
 
@@ -100,7 +100,7 @@ jobs:
             -t \
             *.sln
         
-        cat artifacts/sbom.json
+        # cat artifacts/sbom.json
 
 # ---------------- SBOM ATTESTATION ----------------
 
