@@ -42,22 +42,55 @@ jobs:
 
     - name: Generate SBOM
       run: |
-        syft artifacts/*.nupkg -o spdx-json > sbom.json
+        syft artifacts/*.nupkg -o spdx-json > artifacts/sbom.json
 
     - name: Sign package
       run: |
-        cosign sign-blob \
-          --yes \
-          --bundle artifacts/bundle.json \
-          artifacts/*.nupkg
+        for pkg in artifacts/*.nupkg; do
+          cosign sign-blob \
+            --yes \
+            --bundle artifacts/sign.bundle.json \
+            "$pkg"
+        done
+
+    - name: Verify package signature
+      run: |
+        for pkg in artifacts/*.nupkg; do
+          cosign verify-blob \
+            --bundle artifacts/sign.bundle.json \
+            --certificate-identity "https://github.com/${{ github.repository }}/.github/workflows/nuget.yml@refs/heads/main" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "$pkg"
+        done
 
     - name: Attest SBOM
       run: |
-        cosign attest-blob \
-          --yes \
-          --predicate sbom.json \
-          --type spdx \
-          artifacts/*.nupkg
+        for pkg in artifacts/*.nupkg; do
+          cosign attest-blob \
+            --yes \
+            --bundle artifacts/sbom.bundle.json \
+            --predicate artifacts/sbom.json \
+            --type spdx \
+            "$pkg"
+        done
+
+    - name: Verify SBOM attestation
+      run: |
+        for pkg in artifacts/*.nupkg; do
+          cosign verify-blob-attestation \
+            --bundle artifacts/sbom.bundle.json \
+            --type spdx \
+            --certificate-identity "https://github.com/${{ github.repository }}/.github/workflows/nuget.yml@refs/heads/main" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "$pkg"
+        done
+
+    - name: Verify SBOM reproducibility
+      run: |
+        for pkg in artifacts/*.nupkg; do
+          syft "$pkg" -o spdx-json > sbom.generated.json
+          diff artifacts/sbom.json sbom.generated.json || true
+        done
 
     - name: Generate provenance
       uses: actions/attest-build-provenance@v1
@@ -70,8 +103,8 @@ jobs:
         name: nuget
         path: |
           artifacts/*.nupkg
-          sbom.json
-          artifacts/bundle.json
+          artifacts/sbom.json
+          artifacts/*.bundle.json
 
     - name: Add GitHub NuGet source
       run: |
