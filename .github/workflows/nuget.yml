@@ -101,13 +101,12 @@ jobs:
       env:
         COSIGN_YES: "true"
       run: |
-        set -euo pipefail
+        set -e
 
-        for pkg in $PKG; do
+        for pkg in artifacts/*.nupkg; do
           bundle="artifacts/$(basename "$pkg").sbom.bundle.json"
 
           cosign attest-blob \
-            --tlog-upload=false \
             --bundle "$bundle" \
             --predicate artifacts/sbom.json \
             --type spdx \
