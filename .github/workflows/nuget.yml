@@ -32,12 +32,12 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    - name: Install cosign
-      uses: sigstore/cosign-installer@v3
-
     - name: Install CycloneDX
       run: |
         dotnet tool install -g CycloneDX
+
+    - name: Install cosign
+      uses: sigstore/cosign-installer@v3
 
     - name: Install grype
       run: |
@@ -57,6 +57,8 @@ jobs:
         dotnet pack -c Release --no-build -o artifacts
         
         mv artifacts/*.nupkg $PKG
+        
+        find . -name "packages.lock.json" -type f -exec cp {} artifacts/ \;
         
         ls -lah artifacts
 
