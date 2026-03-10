@@ -51,8 +51,8 @@ jobs:
     - name: Install cosign
       uses: sigstore/cosign-installer@v3
 
-    - name: Install syft
-      uses: anchore/sbom-action/download-syft@v0
+    # - name: Install syft
+    #   uses: anchore/sbom-action/download-syft@v0
 
     - name: Install grype
       uses: anchore/scan-action/download-grype@v3
@@ -99,6 +99,8 @@ jobs:
             -rs \
             -t \
             *.sln
+        
+        cat artifacts/sbom.json
 
 # ---------------- SBOM ATTESTATION ----------------
 
