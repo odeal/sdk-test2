@@ -99,13 +99,19 @@ jobs:
 
     - name: Attest SBOM
       run: |
+        set -euo pipefail
+
         for pkg in $PKG; do
+          echo "Attesting $pkg"
+
           COSIGN_EXPERIMENTAL=1 cosign attest-blob \
             --yes \
-            --bundle artifacts/$(basename $pkg).sbom.bundle.json \
+            --bundle "artifacts/$(basename $pkg).sbom.bundle.json" \
             --predicate artifacts/sbom.json \
             --type spdx \
             "$pkg"
+
+          echo "Finished attestation for $pkg"
         done
 
 # ---------------- VERIFY SBOM ----------------
